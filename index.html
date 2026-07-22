@@ -503,20 +503,22 @@ async function shotDevice(tabKey, withDesc){
   }
   const device=$('#device'); const prev=device.style.boxShadow; device.style.boxShadow='none';
   frame.classList.add('capturing');
-  // 고정 높이를 명시적으로 계산 (html2canvas 복제 시 CSS 변수가 안 풀려 auto로 늘어나는 것 방지)
-      const fixedH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--frame-h')) || 838;
-      const fixedW = device.offsetWidth;
-      const canvas=await html2canvas(device,{
-        backgroundColor:null, scale:2, useCORS:true, logging:false,
-        width:fixedW, height:fixedH, // x: 0, y: 0, windowWidth, windowHeight 옵션을 제거하여 실제 요소 위치만 정확히 캡처
-        onclone:(cdoc)=>{
-          const cd=cdoc.getElementById('device'); if(cd){ cd.style.height=fixedH+'px'; cd.style.overflow='hidden'; }
-          const cf=cdoc.getElementById('frame'); if(cf){ cf.style.height=fixedH+'px'; cf.style.flex='none'; }
-          const ce=cdoc.getElementById('feed'); if(ce){ ce.style.flex='1 1 auto'; ce.style.minHeight='0'; ce.style.overflow='hidden'; }
-          // 부모 요소(.stage)의 padding이나 margin으로 인한 좌우 여백 밀림/간섭 현상 원천 차단
-          const cs=cdoc.querySelector('.stage'); if(cs){ cs.style.padding='0'; cs.style.margin='0'; }
-        }
-      });
+  // 캡처는 화면 폭에 상관없이 '설계 크기(폭 430 × 높이 838)'로 고정한다.
+  // 라이브 offsetWidth(모바일에선 화면폭에 맞춰 좁아짐)를 쓰면 복제본과 폭이 어긋나
+  // 우측이 잘리거나 여백이 남는다. 그래서 CSS 설계 폭/높이를 그대로 강제 사용.
+  const fixedH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--frame-h')) || 838;
+  const fixedW = parseInt(getComputedStyle(device).maxWidth) || 430;
+  const canvas=await html2canvas(device,{
+    backgroundColor:null, scale:2, useCORS:true, logging:false,
+    width:fixedW, height:fixedH, x:0, y:0,
+    windowWidth:fixedW+400, windowHeight:fixedH+200,  // 폰이 렌더 창에 온전히 들어가도록 넉넉히
+    onclone:(cdoc)=>{
+      // 복제본의 폰을 설계 폭/높이로 명시 고정 → 부모(.stage) 패딩·화면폭 영향 제거
+      const cd=cdoc.getElementById('device'); if(cd){ cd.style.width=fixedW+'px'; cd.style.maxWidth='none'; cd.style.height=fixedH+'px'; cd.style.overflow='hidden'; }
+      const cf=cdoc.getElementById('frame'); if(cf){ cf.style.height=fixedH+'px'; cf.style.flex='none'; }
+      const ce=cdoc.getElementById('feed'); if(ce){ ce.style.flex='1 1 auto'; ce.style.minHeight='0'; ce.style.overflow='hidden'; }
+    }
+  });
   frame.classList.remove('capturing'); device.style.boxShadow=prev;
   return canvas;
 }
