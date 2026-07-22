@@ -503,7 +503,19 @@ async function shotDevice(tabKey, withDesc){
   }
   const device=$('#device'); const prev=device.style.boxShadow; device.style.boxShadow='none';
   frame.classList.add('capturing');
-  const canvas=await html2canvas(device,{backgroundColor:null,scale:2,useCORS:true,logging:false});
+  // 고정 높이를 명시적으로 계산 (html2canvas 복제 시 CSS 변수가 안 풀려 auto로 늘어나는 것 방지)
+  const fixedH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--frame-h')) || 838;
+  const fixedW = device.offsetWidth;
+  const canvas=await html2canvas(device,{
+    backgroundColor:null, scale:2, useCORS:true, logging:false,
+    width:fixedW, height:fixedH, x:0, y:0,
+    windowWidth:fixedW, windowHeight:fixedH,
+    onclone:(cdoc)=>{
+      const cd=cdoc.getElementById('device'); if(cd){ cd.style.height=fixedH+'px'; cd.style.overflow='hidden'; }
+      const cf=cdoc.getElementById('frame'); if(cf){ cf.style.height=fixedH+'px'; cf.style.flex='none'; }
+      const ce=cdoc.getElementById('feed'); if(ce){ ce.style.flex='1 1 auto'; ce.style.minHeight='0'; ce.style.overflow='hidden'; }
+    }
+  });
   frame.classList.remove('capturing'); device.style.boxShadow=prev;
   return canvas;
 }
