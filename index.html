@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>What's in your Pinterest</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --desk:#ffffff; --panel:#ffffff; --panel-2:#f2f2f5; --line:#e6e6ea;
+    --ink:#191a1e; --ink-mut:#6b6b73; --accent:#e60023; --danger:#e60023;
+    --feed-bg:#ffffff; --feed-ink:#111214; --feed-mut:#9b9b9b; --feed-line:#ececec;
+    --pin-radius:16px; --red:#e60023;
+    --shadow:0 1px 3px rgba(0,0,0,.10),0 6px 18px rgba(0,0,0,.06);
+    --frame-h:838px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(1200px 600px at 50% -12%, #ffffff 0%, #f3f4f6 72%);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; min-height:100vh; padding-bottom:60px;
+  }
+  button{font-family:inherit;cursor:pointer}
+  textarea,input{font-family:inherit}
+  ::selection{background:var(--accent);color:#fff}
+
+  .toolbar{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:10px 14px}
+  .tb-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:1040px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:8px;margin-right:auto;font-weight:800;letter-spacing:-.02em;font-size:14px}
+  .brand .dotmark{width:14px;height:14px;border-radius:50%;background:conic-gradient(from 200deg,var(--accent),#ff6a86,var(--accent));box-shadow:0 0 0 3px rgba(230,0,35,.16)}
+  .brand small{font-weight:500;color:var(--ink-mut);font-size:11px;margin-left:2px}
+  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .seg button{border:0;background:transparent;color:var(--ink-mut);font-weight:700;font-size:12.5px;padding:6px 12px;border-radius:7px;transition:.15s}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(230,0,35,.30)}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);font-weight:650;font-size:12.5px;padding:7px 11px;border-radius:9px;display:inline-flex;align-items:center;gap:6px;transition:.15s;white-space:nowrap}
+  .btn:hover{border-color:#d2d2d9;background:var(--panel-2)}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--accent);border-color:transparent;color:#fff}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.ghost{background:transparent}
+  .btn[aria-pressed="true"]{background:var(--accent);border-color:transparent;color:#fff}
+  .btn svg{width:14px;height:14px;flex:none}
+  .icon-btn{width:32px;height:32px;padding:0;justify-content:center;border-radius:9px}
+  .divider{width:1px;height:22px;background:var(--line);margin:0 2px}
+
+  .panelwrap{max-width:1040px;margin:12px auto 0;padding:0 14px}
+  details.chatpanel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  details.chatpanel>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:13px;user-select:none}
+  details.chatpanel>summary::-webkit-details-marker{display:none}
+  .chev{width:16px;height:16px;transition:transform .2s;color:var(--ink-mut)}
+  details[open] .chev{transform:rotate(90deg)}
+  .summary-note{margin-left:auto;font-weight:500;color:var(--ink-mut);font-size:11.5px}
+  .chatbody{padding:4px 16px 16px;border-top:1px solid var(--line)}
+  .field{display:flex;flex-direction:column;gap:5px;margin-top:12px}
+  .field label{font-size:11.5px;color:var(--ink-mut);font-weight:650}
+  .row2{display:flex;gap:10px;flex-wrap:wrap}
+  .row2 .field{flex:1;min-width:130px}
+  .inp{background:#f6f6f8;border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 11px;font-size:13px;width:100%}
+  .inp:focus{outline:none;border-color:var(--accent)}
+  textarea.inp{resize:vertical;line-height:1.5}
+  .switch{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink);cursor:pointer;font-weight:600}
+  .switch input{display:none}
+  .track{width:38px;height:22px;border-radius:99px;background:#d9d9df;position:relative;transition:.18s;flex:none}
+  .track::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.18s}
+  .switch input:checked+.track{background:var(--accent)}
+  .switch input:checked+.track::after{transform:translateX(16px)}
+  .avatar-row{display:flex;align-items:center;gap:10px;margin-top:2px}
+  .av-preview{width:42px;height:42px;border-radius:50%;flex:none;background:linear-gradient(135deg,#ff9aa8,var(--red));background-size:cover;background-position:center;border:1px solid var(--line)}
+  .bubbles{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .bubble-edit{display:flex;gap:8px;align-items:flex-start;background:#f6f6f8;border:1px solid var(--line);border-radius:11px;padding:8px}
+  .side-toggle{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+  .side-toggle button{border:0;background:transparent;color:var(--ink-mut);font-size:11px;font-weight:700;padding:7px 9px}
+  .side-toggle button.on{background:var(--accent);color:#fff}
+  .bubble-edit textarea{flex:1;min-height:38px}
+  .mini{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink-mut);font-size:15px;display:flex;align-items:center;justify-content:center;flex:none}
+  .mini:hover{color:var(--danger);border-color:var(--danger)}
+  .addbubble{margin-top:10px}
+
+  .stage{max-width:1040px;margin:20px auto 0;padding:0 14px;display:flex;justify-content:center}
+  .device{width:100%;max-width:430px;background:var(--feed-bg);color:var(--feed-ink);border-radius:26px;overflow:hidden;
+    box-shadow:0 22px 50px -18px rgba(0,0,0,.28),0 0 0 1px #ececf0;position:relative}
+  .frame{display:flex;flex-direction:column;height:var(--frame-h)}
+
+  .tabbar{display:flex;gap:20px;padding:20px 20px 6px;align-items:flex-end;flex:none}
+  .tab{position:relative;color:var(--feed-mut);background:none;border:0;padding:2px 0 8px;font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .tab.active{color:var(--feed-ink)}
+  .tab.active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px;background:var(--feed-ink)}
+  .tab-input{position:relative;color:var(--feed-ink);background:none;border:0;border-bottom:3px solid var(--feed-ink);padding:2px 0 5px;font-size:20px;font-weight:800;letter-spacing:-.02em;min-width:30px}
+  .tab-input:focus{outline:none}
+  .tab-input::placeholder{color:#cfcfcf}
+
+  .feed{flex:1 1 auto;min-height:0;overflow:hidden;padding:8px 10px 6px}
+  .mode-edit .feed{overflow-y:auto}
+  .capturing .feed{overflow:hidden}
+
+  .masonry{display:flex;gap:10px;align-items:flex-start}
+  .col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:10px}
+  /* 크롭 슬리버: 오른쪽 열 맨 위에만, 상단 가장자리에 딱 붙어 잘린 핀처럼 */
+  .sv{height:60px;border-radius:0 0 var(--pin-radius) var(--pin-radius);background:linear-gradient(#d9dee6,#eef0f4);position:relative;overflow:hidden;flex:none}
+  .sv::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(255,255,255,.55),transparent 60%)}
+
+  .pin{position:relative}
+  .pin .card{border-radius:var(--pin-radius);overflow:hidden;background:#f2f2f4;box-shadow:var(--shadow);position:relative}
+  .pin img{display:block;width:100%;height:auto}
+
+  .pin.empty{display:none}
+  .mode-edit .pin.empty{display:block}
+  .capturing .pin.empty{display:none}
+  .pin.empty .card{background:transparent;box-shadow:none;border:1.5px dashed #c9ccd4;min-height:140px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#9aa0ae;cursor:pointer;transition:.15s}
+  .pin.empty:nth-child(3n+1) .card{min-height:180px}
+  .pin.empty:nth-child(3n) .card{min-height:150px}
+  .pin.empty .card:hover{border-color:var(--accent);color:var(--accent);background:rgba(230,0,35,.05)}
+  .pin.empty .plus{font-size:24px;line-height:1;font-weight:300}
+  .pin.empty small{font-size:11.5px;font-weight:600}
+
+  .edit-only{display:none}
+  .mode-edit .edit-only{display:flex}
+  .capturing .edit-only{display:none!important}
+  .capturing .edit-only-block{display:none!important}
+  .pin-tools{gap:5px;padding:6px 2px 0;flex-wrap:wrap}
+  .pin-tools .mini{width:28px;height:28px;background:#fff;color:#333;border-color:#e2e2e8}
+  .pin-tools .mini:hover{color:#fff;border-color:var(--accent);background:var(--accent)}
+  .pin-tools .mini.del:hover{background:var(--danger);border-color:var(--danger)}
+  .pin-desc-edit{margin-top:6px}
+  .pin-desc-edit textarea{width:100%;background:#f6f6f8;border:1px solid #e4e4ea;color:#222;border-radius:9px;padding:8px 9px;font-size:12px;line-height:1.45;resize:vertical;min-height:34px}
+  .pin-desc-edit textarea:focus{outline:none;border-color:var(--accent);background:#fff}
+
+  .desc-overlay{position:absolute;inset:0;border-radius:var(--pin-radius);
+    background:linear-gradient(to top,rgba(15,15,20,.92),rgba(15,15,20,.5) 45%,rgba(15,15,20,0));
+    color:#fff;display:flex;align-items:flex-end;padding:14px 13px;opacity:0;transition:opacity .18s;pointer-events:none}
+  .desc-overlay p{margin:0;font-size:12.5px;line-height:1.5;font-weight:500}
+  .desc-overlay .empty-hint{color:rgba(255,255,255,.6);font-style:italic}
+  .mode-preview .pin.has-img.show-desc .desc-overlay{opacity:1}
+  @media (hover:hover){ .mode-preview .pin.has-img:hover .desc-overlay{opacity:1} }
+  .mode-preview .pin.has-img .card{cursor:pointer}
+  .pin .dots3{display:none}
+  .mode-preview .pin.has-img .dots3{display:block;position:absolute;right:8px;bottom:8px;color:rgba(255,255,255,.9);font-size:20px;line-height:1;letter-spacing:1px;text-shadow:0 1px 4px rgba(0,0,0,.5);pointer-events:none;z-index:2}
+  .capturing .pin .dots3{display:none}
+
+  .feed-editbar{padding:12px 4px 8px;display:flex;gap:8px}
+  .feed-editbar button{flex:1;border:1.5px dashed var(--line);background:var(--panel);color:var(--ink-mut);border-radius:12px;padding:11px;font-weight:700;font-size:12.5px}
+  .feed-editbar button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  .feed-editbar button:disabled{opacity:.4;cursor:not-allowed}
+
+  .nav{display:flex;justify-content:space-around;align-items:center;padding:12px 20px;border-top:1px solid var(--feed-line);background:var(--feed-bg);flex:none}
+  .nav .nb{background:none;border:0;color:var(--feed-ink);position:relative;padding:4px;display:flex}
+  .nav .nb svg{width:26px;height:26px}
+  .nav .nb.reddot::after{content:"";position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:var(--red);border:2px solid var(--feed-bg)}
+
+  /* 인캔버스 채팅 팝업 (작게, 오른쪽 하단) */
+  .chat-pop{position:absolute;right:12px;left:auto;bottom:64px;width:66%;max-width:250px;height:42%;min-height:190px;background:#fff;border-radius:16px;
+    box-shadow:0 16px 40px rgba(0,0,0,.30),0 0 0 1px rgba(0,0,0,.05);display:none;flex-direction:column;overflow:hidden;z-index:20;transform-origin:bottom right}
+  .chat-pop.open{display:flex;animation:pop .16s ease-out}
+  .chat-pop.shooting{animation:none!important;opacity:1!important;transform:none!important}
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+  .cp-head{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid #f0eaea;background:#fff}
+  .cp-head .av{width:27px;height:27px;border-radius:50%;background:linear-gradient(135deg,#ff9aa8,var(--red));background-size:cover;background-position:center;flex:none}
+  .cp-head .nm{font-weight:800;font-size:13px;color:#17171b;line-height:1.1}
+  .cp-head .sub{font-size:10px;color:#b3888c;margin-top:1px}
+  .cp-head .x{margin-left:auto;width:24px;height:24px;border-radius:50%;border:0;background:#fbecef;color:var(--red);font-size:13px;display:flex;align-items:center;justify-content:center}
+  .cp-scroll{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:7px;background:#fafafa}
+  .msg{display:flex;flex-direction:column;max-width:82%}
+  .msg.left{align-self:flex-start;align-items:flex-start}
+  .msg.right{align-self:flex-end;align-items:flex-end}
+  .msg .who{font-size:9.5px;color:#a89aa0;margin:0 5px 2px;font-weight:600}
+  .msg .b{padding:7px 10px;border-radius:13px;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+  .msg.left .b{background:#fff;color:#1a1b20;border:1px solid #efe6e8;border-bottom-left-radius:4px}
+  .msg.right .b{background:var(--red);color:#fff;border-bottom-right-radius:4px}
+  .cp-empty{margin:auto;color:#c3a9ad;font-size:11.5px;text-align:center;line-height:1.6}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:80;background:#0c0d11;color:#fff;border:1px solid var(--line);padding:10px 16px;border-radius:11px;font-size:13px;font-weight:600;opacity:0;transition:.22s;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.5);max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .modal{position:fixed;inset:0;z-index:70;background:rgba(8,9,12,.66);display:none;align-items:center;justify-content:center;padding:18px}
+  .modal.open{display:flex}
+  .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:460px;width:100%;padding:20px 20px 18px;max-height:88vh;overflow:auto}
+  .modal h3{margin:0 0 4px;font-size:16px}
+  .modal p{color:var(--ink-mut);font-size:13px;line-height:1.65;margin:10px 0 0}
+  .modal ul{color:var(--ink-mut);font-size:13px;line-height:1.7;margin:8px 0 0;padding-left:18px}
+  .modal b{color:var(--ink)}
+  .modal .close{margin-top:16px;width:100%;justify-content:center}
+
+  @media (max-width:520px){ .brand small{display:none} .tb-row{gap:6px} .btn{padding:7px 9px;font-size:12px} }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="tb-row">
+    <div class="brand"><span class="dotmark"></span>What's in your Pinterest<small>페어 무드보드 편집기</small></div>
+    <div class="seg" role="group" aria-label="모드">
+      <button id="modeEdit" aria-pressed="true">편집</button>
+      <button id="modePreview" aria-pressed="false">미리보기</button>
+    </div>
+    <button class="btn" id="ooc1">OOC · 캐릭터·유저</button>
+    <button class="btn" id="ooc2">OOC · 페어</button>
+    <span class="divider"></span>
+    <button class="btn" id="descToggle" aria-pressed="false" title="켜면 설명이 적힌 이미지는 설명이 보이는 상태로 내보내집니다">설명 표시</button>
+    <button class="btn primary" id="exportOne">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>PNG · 현재 화면</button>
+    <button class="btn primary" id="exportThree">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="6" height="14" rx="1.5"/><rect x="9" y="5" width="6" height="14" rx="1.5"/><rect x="16" y="5" width="6" height="14" rx="1.5"/></svg>PNG · 세 화면</button>
+    <span class="divider"></span>
+    <button class="btn ghost" id="saveProj">저장(.json)</button>
+    <button class="btn ghost" id="loadProj">불러오기</button>
+    <button class="btn ghost icon-btn" id="helpBtn" title="저장 안내">?</button>
+    <input type="file" id="loadInput" accept="application/json" hidden>
+  </div>
+</div>
+
+<div class="panelwrap edit-only-block">
+  <details class="chatpanel" id="chatPanel">
+    <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>대화 편집<span class="summary-note">폰 하단 채팅 아이콘에 뜨는 팝업 대화</span></summary>
+    <div class="chatbody">
+      <label class="switch" style="margin-top:12px">
+        <input type="checkbox" id="chatEnabled" checked><span class="track"></span>채팅 기능 사용 (끄면 하단 아이콘 비활성)
+      </label>
+      <div class="row2">
+        <div class="field"><label>왼쪽 인물 이름 (캐릭터)</label><input class="inp" id="charName" placeholder="예: 유이"></div>
+        <div class="field"><label>오른쪽 인물 이름 (유저)</label><input class="inp" id="userName" placeholder="예: 나"></div>
+      </div>
+      <div class="field">
+        <label>상대(왼쪽) 프로필 사진</label>
+        <div class="avatar-row">
+          <div class="av-preview" id="avPreview"></div>
+          <button class="btn" id="avPick">사진 선택</button>
+          <button class="btn ghost" id="avClear">제거</button>
+        </div>
+      </div>
+      <div class="field"><label>말풍선</label><div class="bubbles" id="bubbles"></div></div>
+      <button class="btn addbubble" id="addBubble">＋ 말풍선 추가</button>
+    </div>
+  </details>
+</div>
+
+<div class="stage">
+  <div class="device" id="device">
+    <div class="frame mode-edit" id="frame">
+      <div class="tabbar" id="tabbar"></div>
+      <div class="feed" id="feed"></div>
+      <div class="nav" id="nav">
+        <button class="nb" title="홈"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></button>
+        <button class="nb" title="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></button>
+        <button class="nb reddot" id="chatNav" title="대화 보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8.5 8.5 0 01-12.3 7.6L3 21l1.5-5.4A8.5 8.5 0 1121 12z"/></svg></button>
+        <button class="nb" title="프로필"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></button>
+      </div>
+    </div>
+    <div class="chat-pop" id="chatPop">
+      <div class="cp-head">
+        <div class="av" id="cpAvatar"></div>
+        <div><div class="nm" id="cpTitle">대화</div><div class="sub" id="cpSub"></div></div>
+        <button class="x" id="cpClose">✕</button>
+      </div>
+      <div class="cp-scroll" id="cpScroll"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="helpModal">
+  <div class="box">
+    <h3>저장 안내</h3>
+    <ul>
+      <li><b>PNG · 현재 화면</b> — 지금 보는 탭 하나를 흰 배경 위 폰 화면으로 저장.</li>
+      <li><b>PNG · 세 화면</b> — 세 탭을 흰 배경 위에 나란히, 그림자와 함께 한 장으로.</li>
+      <li><b>설명 표시</b> — 켜고 내보내면, 설명이 적힌 이미지는 설명이 보이는 상태로 캡처돼요. 설명 없는 이미지는 그대로.</li>
+      <li><b>저장(.json)</b> — 이미지·설명·대화·프사까지 전부 담은 파일. <b>불러오기</b>로 편집 상태 복원.</li>
+    </ul>
+    <p style="font-size:12px">※ 자동 저장은 안 돼요. 작업 후 PNG나 .json으로 꼭 내보내세요.</p>
+    <button class="btn primary close" id="helpClose">알겠어요</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="imgInput" accept="image/*" hidden>
+<input type="file" id="avInput" accept="image/*" hidden>
+
+<script>
+const OOC_1 = `[ooc: 잠시 롤플레잉 중지, 다음 지시에 따른 답변을 출력하라. 핀터레스트에 네 가지 키워드 "outfit", "food", "quote", "nails"를 검색하여 각각 키워드의 최상단에 뜨는 이미지를 모아두면 그 사람의 핵심 분위기를 파악할 수 있다는 말이 있다. 만약 {{char}}과 {{user}}의 핀터레스트에 각각의 키워드를 검색한다면 최상단에 어떤 사진이 뜰까? 각 사진을 구체적으로 묘사하고, 유저가 직접 실제 이미지를 찾아볼 수 있도록 검색용 키워드를 네 개씩 제시하도록 한다. {{char}}에 대한 것, {{user}}에 대한 것으로 두 가지 경우를 출력한다. 둘의 성격과 채팅방 내에서 학습된 관계성 및 서사를 참고할 것.]`;
+const OOC_2 = `[ooc: 둘의 페어 분위기에 대해 같은 방식으로 검색했을 경우 결과를 출력한다.]`;
+
+const uid = () => Math.random().toString(36).slice(2,9);
+const emptyPin = () => ({id:uid(), img:null, desc:''});
+const TAB_KEYS = ['character','user','pair'];
+
+let state = {
+  activeTab:'character', mode:'edit', showCropTop:true, exportWithDesc:false,
+  tabLabels:{character:'캐릭터', user:'유저', pair:'페어'},
+  tabs:{
+    character:[emptyPin(),emptyPin(),emptyPin(),emptyPin()],
+    user:[emptyPin(),emptyPin(),emptyPin(),emptyPin()],
+    pair:[emptyPin(),emptyPin(),emptyPin(),emptyPin()],
+  },
+  chat:{enabled:true, charName:'', userName:'', charAvatar:null, messages:[{side:'left',text:''},{side:'right',text:''}]},
+};
+
+const $ = s => document.querySelector(s);
+const frame=$('#frame'), feed=$('#feed'), tabbar=$('#tabbar'), imgInput=$('#imgInput');
+let editingPinId=null;
+
+/* 탭 */
+function renderTabs(){
+  tabbar.innerHTML='';
+  TAB_KEYS.forEach(key=>{
+    const label=state.tabLabels[key]||'';
+    if(state.mode==='edit' && key===state.activeTab){
+      const inp=document.createElement('input');
+      inp.className='tab-input'; inp.value=label; inp.placeholder='탭 이름'; inp.size=Math.max(2,label.length||2);
+      inp.oninput=e=>{ state.tabLabels[key]=e.target.value; inp.size=Math.max(2,e.target.value.length||2); };
+      tabbar.appendChild(inp);
+    }else{
+      const b=document.createElement('button');
+      b.className='tab'+(state.activeTab===key?' active':'');
+      b.textContent=label||'(이름)';
+      b.onclick=()=>{ state.activeTab=key; renderTabs(); renderFeed(); };
+      tabbar.appendChild(b);
+    }
+  });
+}
+
+/* 피드 : 2열, 오른쪽 열 맨 위에만 상단 크롭 슬리버(계단 효과) */
+function renderFeed(){
+  feed.innerHTML='';
+  const pins=state.tabs[state.activeTab];
+  const wrap=document.createElement('div'); wrap.className='masonry';
+  const left=document.createElement('div'); left.className='col left';
+  const right=document.createElement('div'); right.className='col right';
+  if(state.showCropTop){ const sv=document.createElement('div'); sv.className='sv'; right.appendChild(sv); }
+  pins.forEach((pin,i)=> (i%2===0?left:right).appendChild(buildPin(pin)) );
+  wrap.append(left,right);
+  feed.appendChild(wrap);
+
+  const bar=document.createElement('div'); bar.className='feed-editbar edit-only-block';
+  const add=document.createElement('button'); add.textContent='＋ 이미지 칸 추가';
+  add.onclick=()=>{ pins.push(emptyPin()); renderFeed(); };
+  const rem=document.createElement('button'); rem.textContent='－ 이미지 칸 제거'; rem.disabled=pins.length<=1;
+  rem.onclick=()=>{ if(pins.length>1){ pins.pop(); renderFeed(); } };
+  bar.append(add,rem); feed.appendChild(bar);
+  if(state.mode!=='edit') bar.style.display='none';
+}
+
+function buildPin(pin){
+  const el=document.createElement('div');
+  el.className='pin '+(pin.img?'has-img':'empty'); el.dataset.id=pin.id;
+  const card=document.createElement('div'); card.className='card';
+  if(pin.img){
+    const img=document.createElement('img'); img.src=pin.img; img.alt='';
+    card.appendChild(img);
+    const ov=document.createElement('div'); ov.className='desc-overlay';
+    if(pin.desc){ const p=document.createElement('p'); p.textContent=pin.desc; ov.appendChild(p); }
+    else ov.innerHTML='<p class="empty-hint">설명이 없습니다</p>';
+    card.appendChild(ov);
+    const dots=document.createElement('div'); dots.className='dots3'; dots.textContent='···'; card.appendChild(dots);
+    card.onclick=()=>{
+      if(state.mode!=='preview') return;
+      const showing=el.classList.contains('show-desc');
+      feed.querySelectorAll('.pin.show-desc').forEach(p=>p.classList.remove('show-desc'));
+      if(!showing) el.classList.add('show-desc');
+    };
+  }else{
+    const box=document.createElement('div'); box.style.textAlign='center';
+    box.innerHTML='<div class="plus">＋</div><small>이미지 삽입</small>';
+    card.appendChild(box);
+    card.onclick=()=>pickImage(pin.id);
+  }
+  el.appendChild(card);
+  if(pin.img){
+    const tools=document.createElement('div'); tools.className='pin-tools edit-only';
+    tools.innerHTML=`<button class="mini" data-a="rf" title="이미지 교체">↺</button>
+      <button class="mini" data-a="up" title="위로">↑</button>
+      <button class="mini" data-a="dn" title="아래로">↓</button>
+      <button class="mini del" data-a="del" title="칸 삭제">🗑</button>`;
+    tools.querySelector('[data-a=rf]').onclick=()=>pickImage(pin.id);
+    tools.querySelector('[data-a=up]').onclick=()=>movePin(pin.id,-1);
+    tools.querySelector('[data-a=dn]').onclick=()=>movePin(pin.id,1);
+    tools.querySelector('[data-a=del]').onclick=()=>delPin(pin.id);
+    el.appendChild(tools);
+    const de=document.createElement('div'); de.className='pin-desc-edit edit-only';
+    const ta=document.createElement('textarea'); ta.placeholder='이 이미지 설명 (미리보기에서 올리면/탭하면 뜸)'; ta.value=pin.desc;
+    ta.oninput=e=>{ pin.desc=e.target.value; };
+    de.appendChild(ta); el.appendChild(de);
+  }
+  return el;
+}
+
+/* 이미지 */
+function pickImage(pinId){ editingPinId=pinId; imgInput.value=''; imgInput.click(); }
+imgInput.onchange=e=>{
+  const f=e.target.files[0]; if(!f||!editingPinId) return; const r=new FileReader();
+  r.onload=()=>{ const pin=findPin(editingPinId); if(pin) pin.img=r.result; editingPinId=null; renderFeed(); };
+  r.readAsDataURL(f);
+};
+const findPin=id=>state.tabs[state.activeTab].find(p=>p.id===id);
+function movePin(id,dir){ const arr=state.tabs[state.activeTab], i=arr.findIndex(p=>p.id===id), j=i+dir;
+  if(i<0||j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; renderFeed(); }
+function delPin(id){ const arr=state.tabs[state.activeTab], i=arr.findIndex(p=>p.id===id);
+  if(i>=0) arr.splice(i,1); if(arr.length===0) arr.push(emptyPin()); renderFeed(); }
+
+/* 모드 */
+function setMode(m){
+  state.mode=m;
+  frame.classList.toggle('mode-edit', m==='edit');
+  frame.classList.toggle('mode-preview', m==='preview');
+  document.querySelectorAll('.edit-only-block').forEach(el=> el.style.display=(m==='edit'?'':'none'));
+  $('#modeEdit').setAttribute('aria-pressed', m==='edit');
+  $('#modePreview').setAttribute('aria-pressed', m==='preview');
+  if(m==='preview') feed.querySelectorAll('.pin.show-desc').forEach(p=>p.classList.remove('show-desc'));
+  renderTabs();
+}
+$('#modeEdit').onclick=()=>setMode('edit');
+$('#modePreview').onclick=()=>setMode('preview');
+
+/* 대화 편집 */
+function renderBubbles(){
+  const wrap=$('#bubbles'); wrap.innerHTML='';
+  state.chat.messages.forEach((m,idx)=>{
+    const row=document.createElement('div'); row.className='bubble-edit';
+    const st=document.createElement('div'); st.className='side-toggle';
+    st.innerHTML=`<button data-s="left" class="${m.side==='left'?'on':''}">왼쪽</button><button data-s="right" class="${m.side==='right'?'on':''}">오른쪽</button>`;
+    st.querySelector('[data-s=left]').onclick=()=>{ m.side='left'; renderBubbles(); };
+    st.querySelector('[data-s=right]').onclick=()=>{ m.side='right'; renderBubbles(); };
+    const ta=document.createElement('textarea'); ta.className='inp';
+    ta.placeholder=m.side==='left'?'캐릭터의 말…':'유저의 말…'; ta.value=m.text;
+    ta.oninput=e=>{ m.text=e.target.value; };
+    const del=document.createElement('button'); del.className='mini'; del.textContent='✕'; del.title='삭제';
+    del.onclick=()=>{ state.chat.messages.splice(idx,1); renderBubbles(); };
+    row.append(st,ta,del); wrap.appendChild(row);
+  });
+}
+$('#addBubble').onclick=()=>{ const last=state.chat.messages[state.chat.messages.length-1];
+  state.chat.messages.push({side:last&&last.side==='left'?'right':'left', text:''}); renderBubbles(); };
+$('#chatEnabled').onchange=e=>{ state.chat.enabled=e.target.checked; updateChatNav(); };
+$('#charName').oninput=e=>{ state.chat.charName=e.target.value; };
+$('#userName').oninput=e=>{ state.chat.userName=e.target.value; };
+function updateChatNav(){ const nav=$('#chatNav');
+  const has=state.chat.enabled && state.chat.messages.some(m=>m.text.trim());
+  nav.classList.toggle('reddot',has); nav.style.opacity=state.chat.enabled?'1':'.35'; }
+
+/* 프로필 사진 */
+$('#avPick').onclick=()=>{ $('#avInput').value=''; $('#avInput').click(); };
+$('#avInput').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ state.chat.charAvatar=r.result; updateAvatarUI(); }; r.readAsDataURL(f); };
+$('#avClear').onclick=()=>{ state.chat.charAvatar=null; updateAvatarUI(); };
+function updateAvatarUI(){
+  const a=state.chat.charAvatar;
+  const prev=$('#avPreview'), head=$('#cpAvatar');
+  [prev,head].forEach(el=>{ if(a){ el.style.backgroundImage=`url(${a})`; } else { el.style.backgroundImage=''; } });
+}
+
+/* 채팅 팝업 */
+function openChat(){
+  if(!state.chat.enabled) return;
+  const sc=$('#cpScroll'); sc.innerHTML='';
+  const msgs=state.chat.messages.filter(m=>m.text.trim());
+  $('#cpTitle').textContent=state.chat.charName||'대화';
+  $('#cpSub').textContent=state.chat.userName?`${state.chat.charName||'캐릭터'} · ${state.chat.userName}`:'';
+  updateAvatarUI();
+  if(!msgs.length){ sc.innerHTML='<div class="cp-empty">아직 대화가 없어요.<br>‘대화 편집’에서 채워보세요.</div>'; }
+  else msgs.forEach(m=>{
+    const el=document.createElement('div'); el.className='msg '+m.side;
+    const name=m.side==='left'?(state.chat.charName||''):(state.chat.userName||'');
+    if(name){ const w=document.createElement('div'); w.className='who'; w.textContent=name; el.appendChild(w); }
+    const b=document.createElement('div'); b.className='b'; b.textContent=m.text; el.appendChild(b);
+    sc.appendChild(el);
+  });
+  $('#chatPop').classList.add('open');
+}
+$('#chatNav').onclick=openChat;
+$('#cpClose').onclick=()=> $('#chatPop').classList.remove('open');
+
+/* OOC 복사 */
+function copyText(t,label){
+  const done=()=>toast(label+' 복사됨');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(()=>fb(t,done)); else fb(t,done);
+  function fb(x,cb){const ta=document.createElement('textarea');ta.value=x;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');cb();}catch(e){toast('복사 실패 — 직접 선택하세요');}document.body.removeChild(ta);}
+}
+$('#ooc1').onclick=()=>copyText(OOC_1,'OOC(캐릭터·유저)');
+$('#ooc2').onclick=()=>copyText(OOC_2,'OOC(페어)');
+
+/* 설명 표시 토글 */
+$('#descToggle').onclick=()=>{
+  state.exportWithDesc=!state.exportWithDesc;
+  const b=$('#descToggle'); b.setAttribute('aria-pressed', state.exportWithDesc);
+  b.textContent=state.exportWithDesc?'✓ 설명 표시':'설명 표시';
+};
+
+/* ── 내보내기 ── */
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+async function shotDevice(tabKey, withDesc){
+  state.activeTab=tabKey; renderTabs(); renderFeed(); feed.scrollTop=0;
+  feed.querySelectorAll('.pin.show-desc').forEach(p=>p.classList.remove('show-desc'));
+  if(withDesc){
+    const pins=state.tabs[tabKey];
+    feed.querySelectorAll('.pin.has-img').forEach(el=>{
+      const pin=pins.find(p=>p.id===el.dataset.id);
+      if(pin && pin.desc && pin.desc.trim()) el.classList.add('show-desc');
+    });
+  }
+  const device=$('#device'); const prev=device.style.boxShadow; device.style.boxShadow='none';
+  frame.classList.add('capturing');
+  const canvas=await html2canvas(device,{backgroundColor:null,scale:2,useCORS:true,logging:false});
+  frame.classList.remove('capturing'); device.style.boxShadow=prev;
+  return canvas;
+}
+async function exportComposite(keys, filename, single){
+  if(typeof html2canvas==='undefined'){ toast('이미지 변환기를 못 불러왔어요 (네트워크 확인)'); return; }
+  const withDesc=state.exportWithDesc;
+  toast(single?'이미지 만드는 중…':'세 화면 만드는 중…');
+  const origTab=state.activeTab, origMode=state.mode;
+  const pop=$('#chatPop'); const wasOpen=pop.classList.contains('open');
+  const keepPopup = single && wasOpen;              // 현재 화면 + 열려있으면 함께 캡처
+  if(keepPopup){ openChat(); pop.classList.add('shooting'); }  // 내용 갱신 + 애니메이션 제거
+  else pop.classList.remove('open');               // 그 외엔 캡처 중 숨김
+  setMode('preview');
+  const shots=[];
+  try{ for(const k of keys) shots.push(await shotDevice(k, withDesc)); }
+  catch(err){ console.error(err); toast('내보내기 실패'); }
+  setMode(origMode); state.activeTab=origTab; renderTabs(); renderFeed();
+  pop.classList.remove('shooting');
+  if(wasOpen && !pop.classList.contains('open')) pop.classList.add('open');
+  if(!shots.length) return;
+
+  const scale=2, dw=shots[0].width, dh=shots[0].height;
+  const margin=70*scale, gap=48*scale, radius=26*scale, n=shots.length;
+  const W=margin*2+dw*n+gap*(n-1), H=margin*2+dh;
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  shots.forEach((dc,i)=>{
+    const x=margin+i*(dw+gap), y=margin;
+    ctx.save();
+    ctx.shadowColor='rgba(17,18,20,0.20)'; ctx.shadowBlur=46*scale; ctx.shadowOffsetY=26*scale;
+    rr(ctx,x,y,dw,dh,radius); ctx.fillStyle='#fff'; ctx.fill(); ctx.restore();
+    ctx.save(); rr(ctx,x,y,dw,dh,radius); ctx.clip(); ctx.drawImage(dc,x,y); ctx.restore();
+  });
+  const a=document.createElement('a'); a.download=filename; a.href=c.toDataURL('image/png'); a.click();
+  toast(single?'PNG 저장 완료':'세 화면 PNG 저장 완료');
+}
+$('#exportOne').onclick=()=>exportComposite([state.activeTab], `pinterest_${state.activeTab}_${Date.now()}.png`, true);
+$('#exportThree').onclick=()=>exportComposite(TAB_KEYS, `pinterest_three_${Date.now()}.png`, false);
+
+/* 저장/불러오기 */
+$('#saveProj').onclick=()=>{
+  const blob=new Blob([JSON.stringify(state)],{type:'application/json'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=`pin_project_${Date.now()}.json`; a.click(); URL.revokeObjectURL(url);
+  toast('프로젝트 저장됨 (.json)');
+};
+$('#loadProj').onclick=()=>$('#loadInput').click();
+$('#loadInput').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ try{ applyState(JSON.parse(r.result)); toast('불러오기 완료'); }catch(err){ toast('올바른 프로젝트 파일이 아니에요'); } };
+  r.readAsText(f);
+};
+function applyState(data){
+  if(!data||!data.tabs||!data.chat) throw new Error('bad');
+  state=data;
+  state.mode=state.mode||'edit'; state.activeTab=state.activeTab||'character';
+  state.tabLabels=state.tabLabels||{character:'캐릭터',user:'유저',pair:'페어'};
+  if(state.showCropTop===undefined) state.showCropTop=true;
+  if(state.exportWithDesc===undefined) state.exportWithDesc=false;
+  if(state.chat.charAvatar===undefined) state.chat.charAvatar=null;
+  syncControls(); renderAll();
+}
+function syncControls(){
+  $('#chatEnabled').checked=state.chat.enabled;
+  $('#charName').value=state.chat.charName||'';
+  $('#userName').value=state.chat.userName||'';
+  const b=$('#descToggle'); b.setAttribute('aria-pressed',state.exportWithDesc); b.textContent=state.exportWithDesc?'✓ 설명 표시':'설명 표시';
+  updateAvatarUI();
+}
+function renderAll(){ setMode(state.mode); renderTabs(); renderFeed(); renderBubbles(); updateChatNav(); updateAvatarUI(); }
+
+/* 도움말/토스트 */
+$('#helpBtn').onclick=()=>$('#helpModal').classList.add('open');
+$('#helpClose').onclick=()=>$('#helpModal').classList.remove('open');
+$('#helpModal').onclick=e=>{ if(e.target.id==='helpModal') $('#helpModal').classList.remove('open'); };
+let toastTimer;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2000); }
+
+/* 시작 */
+syncControls(); renderAll();
+</script>
+</body>
+</html>
