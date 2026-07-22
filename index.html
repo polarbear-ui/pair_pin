@@ -12,7 +12,7 @@
     --feed-bg:#ffffff; --feed-ink:#111214; --feed-mut:#9b9b9b; --feed-line:#ececec;
     --pin-radius:16px; --red:#e60023;
     --shadow:0 1px 3px rgba(0,0,0,.10),0 6px 18px rgba(0,0,0,.06);
-    --frame-h:838px;
+    --frame-h:838px; --frame-w:430px;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -79,7 +79,10 @@
   .addbubble{margin-top:10px}
 
   .stage{max-width:1040px;margin:20px auto 0;padding:0 14px;display:flex;justify-content:center}
-  .device{width:100%;max-width:430px;background:var(--feed-bg);color:var(--feed-ink);border-radius:26px;overflow:hidden;
+  /* 미리보기: 폰을 항상 설계 크기(430×838)로 레이아웃하고, 화면이 좁으면 비율 그대로 축소 */
+  .fitbox{position:relative}
+  .fitinner{width:var(--frame-w);transform-origin:top left}
+  .device{width:var(--frame-w);height:var(--frame-h);background:var(--feed-bg);color:var(--feed-ink);border-radius:26px;overflow:hidden;
     box-shadow:0 22px 50px -18px rgba(0,0,0,.28),0 0 0 1px #ececf0;position:relative}
   .frame{display:flex;flex-direction:column;height:var(--frame-h)}
 
@@ -236,7 +239,9 @@
 </div>
 
 <div class="stage">
-  <div class="device" id="device">
+ <div class="fitbox" id="fitbox">
+  <div class="fitinner" id="fitinner">
+   <div class="device" id="device">
     <div class="frame mode-edit" id="frame">
       <div class="tabbar" id="tabbar"></div>
       <div class="feed" id="feed"></div>
@@ -255,7 +260,9 @@
       </div>
       <div class="cp-scroll" id="cpScroll"></div>
     </div>
+   </div>
   </div>
+ </div>
 </div>
 
 <div class="modal" id="helpModal">
@@ -503,23 +510,33 @@ async function shotDevice(tabKey, withDesc){
   }
   const device=$('#device'); const prev=device.style.boxShadow; device.style.boxShadow='none';
   frame.classList.add('capturing');
-  // 캡처는 화면 폭에 상관없이 '설계 크기(폭 430 × 높이 838)'로 고정한다.
-  // 라이브 offsetWidth(모바일에선 화면폭에 맞춰 좁아짐)를 쓰면 복제본과 폭이 어긋나
-  // 우측이 잘리거나 여백이 남는다. 그래서 CSS 설계 폭/높이를 그대로 강제 사용.
+  // 캡처는 화면폭과 무관하게 '설계 크기(430×838)'로 고정. 미리보기 축소(scale)는 잠시 해제해
+  // 원본 좌표가 어긋나지 않게 한 뒤 캡처한다. (모바일 우측 잘림/비율 어긋남 방지)
+  const fixedW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--frame-w')) || 430;
   const fixedH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--frame-h')) || 838;
-  const fixedW = parseInt(getComputedStyle(device).maxWidth) || 430;
-  const canvas=await html2canvas(device,{
-    backgroundColor:null, scale:2, useCORS:true, logging:false,
-    width:fixedW, height:fixedH, x:0, y:0,
-    windowWidth:fixedW+400, windowHeight:fixedH+200,  // 폰이 렌더 창에 온전히 들어가도록 넉넉히
-    onclone:(cdoc)=>{
-      // 복제본의 폰을 설계 폭/높이로 명시 고정 → 부모(.stage) 패딩·화면폭 영향 제거
-      const cd=cdoc.getElementById('device'); if(cd){ cd.style.width=fixedW+'px'; cd.style.maxWidth='none'; cd.style.height=fixedH+'px'; cd.style.overflow='hidden'; }
-      const cf=cdoc.getElementById('frame'); if(cf){ cf.style.height=fixedH+'px'; cf.style.flex='none'; }
-      const ce=cdoc.getElementById('feed'); if(ce){ ce.style.flex='1 1 auto'; ce.style.minHeight='0'; ce.style.overflow='hidden'; }
-    }
-  });
-  frame.classList.remove('capturing'); device.style.boxShadow=prev;
+  const fitinner=$('#fitinner'), fitbox=$('#fitbox');
+  const sT=fitinner?fitinner.style.transform:'', sBW=fitbox?fitbox.style.width:'', sBH=fitbox?fitbox.style.height:'';
+  if(fitinner) fitinner.style.transform='none';
+  if(fitbox){ fitbox.style.width='auto'; fitbox.style.height='auto'; }
+  let canvas;
+  try{
+    canvas=await html2canvas(device,{
+      backgroundColor:null, scale:2, useCORS:true, logging:false,
+      width:fixedW, height:fixedH, x:0, y:0,
+      windowWidth:fixedW+400, windowHeight:fixedH+200,
+      onclone:(cdoc)=>{
+        const ci=cdoc.getElementById('fitinner'); if(ci){ ci.style.transform='none'; ci.style.width=fixedW+'px'; }
+        const cb=cdoc.getElementById('fitbox'); if(cb){ cb.style.width='auto'; cb.style.height='auto'; }
+        const cd=cdoc.getElementById('device'); if(cd){ cd.style.width=fixedW+'px'; cd.style.maxWidth='none'; cd.style.height=fixedH+'px'; cd.style.overflow='hidden'; }
+        const cf=cdoc.getElementById('frame'); if(cf){ cf.style.height=fixedH+'px'; cf.style.flex='none'; }
+        const ce=cdoc.getElementById('feed'); if(ce){ ce.style.flex='1 1 auto'; ce.style.minHeight='0'; ce.style.overflow='hidden'; }
+      }
+    });
+  } finally {
+    if(fitinner) fitinner.style.transform=sT;
+    if(fitbox){ fitbox.style.width=sBW; fitbox.style.height=sBH; }
+    frame.classList.remove('capturing'); device.style.boxShadow=prev;
+  }
   return canvas;
 }
 async function exportComposite(keys, filename, single){
@@ -598,8 +615,25 @@ $('#helpModal').onclick=e=>{ if(e.target.id==='helpModal') $('#helpModal').class
 let toastTimer;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2000); }
 
+/* 미리보기 폰을 항상 설계 비율(430×838)로 유지하고, 화면이 좁으면 그대로 축소해서 맞춤
+   → 미리보기와 다운로드가 비율·내용까지 동일해짐 */
+function fitDevice(){
+  const fitbox=$('#fitbox'), fitinner=$('#fitinner'), stage=document.querySelector('.stage');
+  if(!fitbox||!fitinner||!stage) return;
+  const DW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--frame-w')) || 430;
+  const DH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--frame-h')) || 838;
+  const cs = getComputedStyle(stage);
+  const avail = stage.clientWidth - parseFloat(cs.paddingLeft||0) - parseFloat(cs.paddingRight||0); // 패딩 제외 실제 가용 폭
+  const scale = Math.min(1, avail / DW);
+  fitinner.style.transform = 'scale('+scale+')';
+  fitbox.style.width  = (DW*scale)+'px';
+  fitbox.style.height = (DH*scale)+'px';
+}
+window.addEventListener('resize', fitDevice);
+window.addEventListener('orientationchange', ()=>setTimeout(fitDevice,80));
+
 /* 시작 */
-syncControls(); renderAll();
+syncControls(); renderAll(); fitDevice();
 </script>
 </body>
 </html>
